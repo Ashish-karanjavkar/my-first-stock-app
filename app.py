@@ -1,60 +1,57 @@
 import streamlit as st
-from nsepy import get_history
-from datetime import datetime, date, timedelta
-import time
+from datetime import datetime, timedelta
+import nsepy
+from nsepy.derivatives import get_expiry_date
+from nsepy.derivatives import get_all_options
+import pandas as pd
 
-# Title of the app
-st.title('📈 Stock Price Tracker and Option Chain Stats')
-
-# Sidebar for page selection
-page = st.sidebar.radio("Select Page", ["Stock Tracker", "Option Chain Stats"])
-
-# ====================
-# Stock Tracker Page
-if page == "Stock Tracker":
-    st.write('Welcome! Track live stock prices from NSE and BSE markets.')
-
-    # Input box for user to type stock symbol
-    stock = st.text_input('Enter Stock Symbol (Example: RELIANCE, TCS, INFY)')
-
-    # Date picker for start and end date
-    start_date = st.date_input('Select Start Date', datetime.today())
-    end_date = st.date_input('Select End Date', datetime.today())
-
-    # Fetch stock data when the refresh button is clicked or when stock is entered
-    if stock:
-        # Add logic for stock data retrieval here...
-        pass  # Placeholder
-
-# ====================
-# Option Chain Stats Page
-elif page == "Option Chain Stats":
-    st.write("Fetching Option Chain Data...")
-
-    # Date dropdown for past 10 days
-    date_list = [date.today() - timedelta(days=i) for i in range(10)]
-    selected_date = st.selectbox("Select Date", date_list)
-    st.write(f"Selected Date: {selected_date}")
-
-    # Time dropdown (for example, selecting hours)
-    time_list = [f"{i}:00" for i in range(9, 16)]  # Selecting hours from 9 AM to 3 PM
-    selected_time = st.selectbox("Select Time", time_list)
-    st.write(f"Selected Time: {selected_time}")
-
-    # Fetch data based on selected date and time
-    if selected_date and selected_time:
+# Function to fetch data based on selected date and time
+def get_option_data(symbol, selected_date, selected_time):
+    try:
         st.write(f"Fetching data for {selected_date} at {selected_time}...")
 
-        # Fetch option chain data (Ensure this is correctly adjusted to your market data API)
-        try:
-            # Adjust to use the actual data fetch logic
-            option_data = get_history(symbol="NIFTY", start=selected_date, end=selected_date)
-            # Optionally filter the data based on time (if applicable to the data structure)
-            
-            # Placeholder for data display
-            if not option_data.empty:
-                st.write(option_data)
+        # Ensure date is within market hours
+        market_open_time = datetime.strptime(f"{selected_date} 09:15", "%Y-%m-%d %H:%M")
+        market_close_time = datetime.strptime(f"{selected_date} 15:30", "%Y-%m-%d %H:%M")
+
+        selected_time_dt = datetime.strptime(f"{selected_date} {selected_time}", "%Y-%m-%d %H:%M")
+
+        if selected_time_dt < market_open_time or selected_time_dt > market_close_time:
+            st.write("The selected time is outside market hours.")
+            return
+        
+        # Fetch data for NIFTY using NSEpy API
+        nifty_data = nsepy.get_history(symbol="NIFTY", start=selected_date, end=selected_date)
+        
+        if nifty_data.empty:
+            st.write(f"No data available for {symbol} on {selected_date}.")
+            return
+        else:
+            st.write(f"Data fetched successfully for {symbol} on {selected_date}.")
+            st.write(nifty_data)
+
+            # Assuming you want to extract specific details like Open Interest or price data
+            # Example: Fetching the Close price and Open Interest of NIFTY options
+            option_data = nsepy.get_history(symbol="NIFTY", start=selected_date, end=selected_date, option_type='CE', strike_price=9500, expiry_date=get_expiry_date(selected_date))
+
+            if option_data.empty:
+                st.write(f"No options data available for NIFTY on {selected_date}.")
             else:
-                st.write("No data available for the selected symbol.")
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
+                st.write("Options data fetched successfully.")
+                st.write(option_data)
+
+    except Exception as e:
+        st.write(f"Error fetching data: {e}")
+
+# Add a dropdown for the date selection (last 10 days)
+date_options = [datetime.today() - timedelta(days=i) for i in range(10)]
+date_str = [date.strftime("%Y-%m-%d") for date in date_options]
+selected_date = st.selectbox("Select Date", date_str)
+
+# Add a dropdown for time (available hours for NSE market: 09:15 to 15:30)
+time_options = [f"{h:02}:{m:02}" for h in range(9, 16) for m in [0, 15, 30, 45]]
+selected_time = st.selectbox("Select Time", time_options)
+
+# When the user clicks the "Fetch Data" button
+if st.button("Fetch Option Data"):
+    get_option_data("NIFTY", selected_date, selected_time)
