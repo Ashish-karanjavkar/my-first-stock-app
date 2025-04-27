@@ -2,9 +2,9 @@ import streamlit as st
 import yfinance as yf
 from nsepy import get_history
 from datetime import datetime, date
-import pandas as pd
 import plotly.graph_objects as go  # For candlestick chart
 import time  # For auto-refresh logic
+import pandas as pd
 
 # Title of the app
 st.title('📈 Stock Price Tracker and Option Chain Stats')
@@ -108,36 +108,29 @@ if page == "Stock Tracker":
 elif page == "Option Chain Stats":
     st.write("Fetching Option Chain Data...")
 
-    # Dropdown for selecting the date (last 10 days)
+    # Input box for symbol to fetch option chain data
+    symbol_input = st.text_input("Enter the Symbol (e.g., Nifty50, Nifty, etc.)", "NIFTY50")
+
+    # Date selection dropdown for the last 10 days
     date_dropdown = st.selectbox("Select Date", pd.date_range(datetime.today() - pd.Timedelta(days=10), datetime.today()).strftime('%Y-%m-%d'))
+    st.write(f"Selected Date: {date_dropdown}")
 
-    # Dropdown for selecting the time
-    time_dropdown = st.selectbox("Select Time", ["09:00", "09:15", "09:30", "09:45", "10:00", "10:15", "10:30", "10:45", "11:00", "11:15", "11:30", "11:45", "12:00", "12:15", "12:30", "12:45", "13:00", "13:15", "13:30", "13:45", "14:00", "14:15", "14:30", "14:45", "15:00"])
+    # Time selection dropdown
+    time_dropdown = st.selectbox("Select Time", pd.date_range(datetime.today(), datetime.today() + pd.Timedelta(hours=1), freq="15T").strftime('%H:%M'))
+    st.write(f"Selected Time: {time_dropdown}")
 
-    # Combine selected date and time into datetime object
-    selected_datetime_str = f"{date_dropdown} {time_dropdown}"
-    selected_datetime = datetime.strptime(selected_datetime_str, "%Y-%m-%d %H:%M")
-
-    # Print the selected date and time for debugging
-    st.write(f"Fetching data for {selected_datetime}...")
-
-    # Fetch Option Chain Data (replace NIFTY with your symbol)
-    try:
-        nifty_options = get_history(symbol="NIFTY", index=True, start=date(2023, 1, 1), end=date.today())
+    # Fetch the data when the user selects a symbol, date, and time
+    if symbol_input:
+        st.write(f"Fetching data for {symbol_input} on {date_dropdown} at {time_dropdown}...")
         
-        # Log the data to verify what you're getting
-        st.write(f"Fetched data for NIFTY: {nifty_options.head()}")
-
-        if not nifty_options.empty:
-            # Calculate stats (you can modify this based on what you're looking for)
-            call_oi = nifty_options[nifty_options['OptionType'] == 'CE']['OpenInterest'].sum()
-            put_oi = nifty_options[nifty_options['OptionType'] == 'PE']['OpenInterest'].sum()
-
-            # Display stats
-            st.subheader("Option Chain Stats")
-            st.write(f"Total Call Open Interest (OI): {call_oi}")
-            st.write(f"Total Put Open Interest (OI): {put_oi}")
-        else:
-            st.error("No data available for the selected symbol.")
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
+        # Fetch Option Chain Data for the selected symbol, date, and time
+        try:
+            option_data = get_history(symbol=symbol_input, index=True, start=datetime.strptime(date_dropdown, '%Y-%m-%d'), end=datetime.strptime(date_dropdown, '%Y-%m-%d'))
+            
+            if not option_data.empty:
+                # Display fetched data
+                st.write(option_data)
+            else:
+                st.write(f"No data available for {symbol_input} on {date_dropdown} at {time_dropdown}.")
+        except Exception as e:
+            st.write(f"Error fetching data: {e}")
