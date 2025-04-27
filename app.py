@@ -1,9 +1,9 @@
 import streamlit as st
 import yfinance as yf
 from nsepy import get_history
-from datetime import datetime, date, timedelta
-import plotly.graph_objects as go  # For candlestick chart
-import time  # For auto-refresh logic
+from datetime import datetime, timedelta
+import plotly.graph_objects as go
+import time
 
 # Title of the app
 st.title('📈 Stock Price Tracker and Option Chain Stats')
@@ -119,16 +119,19 @@ elif page == "Option Chain Stats":
     st.write(f"Selected Date: {selected_date} | Selected Time: {time_dropdown}")
 
     # Get the option chain for Nifty on the selected date
-    nifty_options = get_history(symbol="NIFTY", index=True, start=selected_date, end=selected_date)
+    try:
+        nifty_options = get_history(symbol="NIFTY", index=True, start=selected_date, end=selected_date)
+        
+        # Print the fetched data for debugging purposes
+        st.write("Fetched Data:")
+        st.write(nifty_options.head())  # Display the first few rows of the data
 
-    if not nifty_options.empty:
-        # Option chain analysis
-        # (Add your logic to compute and display stats here)
+        if not nifty_options.empty:
+            # Option chain analysis (you can add your logic here to calculate the stats)
+            st.write(f"Option Chain for Nifty on {selected_date} at {time_dropdown}:")
+            st.write(nifty_options.head())  # Modify this with your specific analysis
 
-        # Sample output - modify according to your analysis
-        st.write(f"Option Chain for Nifty on {selected_date} at {time_dropdown}:")
-        st.write(nifty_options.head())
-
-    else:
-        st.write(f"No data available for {selected_date}.")
-
+        else:
+            st.write(f"No data available for {selected_date}.")
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
