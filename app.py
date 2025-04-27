@@ -1,8 +1,14 @@
 import streamlit as st
 
-st.title('📈 My First Stock App')
-st.write('Welcome! This is my first app built with Python and Streamlit.')
+# Title of the app
+st.title('📈 Stock Price Tracker (India)')
 
-st.header('Sample Stock')
-stock = st.text_input('Enter Stock Symbol', 'AAPL')  # default AAPL
-st.write(f'You entered: {stock}')
+# Short description
+st.write('Welcome! Track latest live stock prices from NSE and BSE markets.')
+
+# Input box for user to type stock symbol
+stock = st.text_input('Enter Stock Symbol (Example: RELIANCE, TCS, INFY)')
+
+# Show what user typed
+if stock:
+    st.write(f"You entered: {stock}")
