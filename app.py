@@ -2,7 +2,6 @@ import streamlit as st
 from datetime import datetime, timedelta
 import nsepy
 from nsepy.derivatives import get_expiry_date
-from nsepy.derivatives import get_all_options
 import pandas as pd
 
 # Function to fetch data based on selected date and time
@@ -30,9 +29,11 @@ def get_option_data(symbol, selected_date, selected_time):
             st.write(f"Data fetched successfully for {symbol} on {selected_date}.")
             st.write(nifty_data)
 
-            # Assuming you want to extract specific details like Open Interest or price data
-            # Example: Fetching the Close price and Open Interest of NIFTY options
-            option_data = nsepy.get_history(symbol="NIFTY", start=selected_date, end=selected_date, option_type='CE', strike_price=9500, expiry_date=get_expiry_date(selected_date))
+            # Example: Fetching the Call Option data for NIFTY
+            # Adjust the strike price as necessary
+            strike_price = 9500  # Example strike price
+            expiry_date = get_expiry_date(selected_date)
+            option_data = nsepy.get_history(symbol="NIFTY", start=selected_date, end=selected_date, option_type='CE', strike_price=strike_price, expiry_date=expiry_date)
 
             if option_data.empty:
                 st.write(f"No options data available for NIFTY on {selected_date}.")
