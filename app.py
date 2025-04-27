@@ -18,11 +18,8 @@ stock = st.text_input('Enter Stock Symbol (Example: RELIANCE, TCS, INFY)')
 start_date = st.date_input('Select Start Date', datetime.today())
 end_date = st.date_input('Select End Date', datetime.today())
 
-# Dropdown for selecting the time period (for fallback)
-time_period = st.selectbox(
-    "Select Time Period (For fallback)",
-    ["7d", "30d", "1mo", "3mo", "6mo", "1y", "5y"]
-)
+# Dropdown for selecting the time interval
+interval = st.selectbox('Select Time Interval', ['1m', '5m', '15m', '30m', '1h', '1d'])
 
 # Refresh button
 refresh = st.button("Refresh Data")
@@ -40,12 +37,12 @@ if stock or refresh:
     # Fetch Stock Data from Yahoo Finance
     stock_data = yf.Ticker(stock)
     
-    # Try to get data for the custom date range first, fallback to time_period if no custom dates selected
+    # Try to get data for the custom date range first, fallback to interval if no custom dates selected
     try:
-        stock_info = stock_data.history(start=start_date_str, end=end_date_str)
+        stock_info = stock_data.history(start=start_date_str, end=end_date_str, interval=interval)
     except Exception as e:
         st.error(f"Error fetching data: {e}")
-        stock_info = stock_data.history(period=time_period)  # Fallback to pre-defined time period
+        stock_info = stock_data.history(period='1d', interval=interval)  # Fallback to 1 day if error
     
     # If no data available, show a message
     if stock_info.empty:
@@ -70,7 +67,7 @@ if stock or refresh:
             st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
 
         # Plot the candlestick chart for the stock data
-        st.subheader(f"Candlestick Chart for {stock} from {start_date_str} to {end_date_str}")
+        st.subheader(f"Candlestick Chart for {stock} from {start_date_str} to {end_date_str} (Interval: {interval})")
 
         # Prepare the data for the candlestick chart
         fig = go.Figure(data=[go.Candlestick(
@@ -96,6 +93,3 @@ if stock or refresh:
     # Option to automatically refresh every minute
     if refresh:
         time.sleep(60)  # Wait for 60 seconds before refreshing (you can adjust this time)
-
-    # If you want to rerun the app automatically after a certain interval:
-    # st.experimental_rerun()
