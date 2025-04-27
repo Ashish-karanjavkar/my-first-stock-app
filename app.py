@@ -5,9 +5,6 @@ from datetime import datetime, date
 import plotly.graph_objects as go  # For candlestick chart
 import time  # For auto-refresh logic
 
-# Title of the app
-st.title('📈 Stock Price Tracker and Option Chain Stats')
-
 # Sidebar for page selection
 page = st.sidebar.radio("Select Page", ["Stock Tracker", "Option Chain Stats"])
 
