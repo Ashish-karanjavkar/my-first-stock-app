@@ -19,10 +19,22 @@ if stock:
     
     # Fetch Stock Data from Yahoo Finance
     stock_data = yf.Ticker(stock)  # We use the modified stock symbol
-    stock_info = stock_data.history(period="1d")  # Fetch 1-day data
+    stock_info = stock_data.history(period="2d")  # Fetch last 2 days data
 
-    # Get the latest closing price
+    # Get the latest closing price and previous closing price
     latest_price = stock_info['Close'].iloc[-1]
+    previous_price = stock_info['Close'].iloc[-2]
+
+    # Calculate the percentage change
+    change_percentage = ((latest_price - previous_price) / previous_price) * 100
     
     # Display the latest price
     st.write(f"Latest price for {stock}: ₹{latest_price:.2f}")
+    
+    # Display the percentage change with color coding
+    if change_percentage >= 0:
+        st.markdown(f"**Price Change: +{change_percentage:.2f}%**", unsafe_allow_html=True)
+        st.markdown('<span style="color:green;">(Profit)</span>', unsafe_allow_html=True)
+    else:
+        st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
+        st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
