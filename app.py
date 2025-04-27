@@ -1,9 +1,7 @@
 import streamlit as st
-import yfinance as yf
 from nsepy import get_history
 from datetime import datetime, timedelta
-import plotly.graph_objects as go
-import time
+import pandas as pd
 
 # Title of the app
 st.title('📈 Stock Price Tracker and Option Chain Stats')
@@ -112,12 +110,6 @@ elif page == "Option Chain Stats":
     date_dropdown = st.selectbox("Select Date (Past 10 Days)", [date.strftime('%Y-%m-%d') for date in date_options])
     selected_date = datetime.strptime(date_dropdown, '%Y-%m-%d').date()
 
-    # Time dropdown (example: every 30 minutes or hourly)
-    time_options = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00']
-    time_dropdown = st.selectbox("Select Time", time_options)
-
-    st.write(f"Selected Date: {selected_date} | Selected Time: {time_dropdown}")
-
     # Get the option chain for Nifty on the selected date
     try:
         nifty_options = get_history(symbol="NIFTY", index=True, start=selected_date, end=selected_date)
@@ -127,9 +119,15 @@ elif page == "Option Chain Stats":
         st.write(nifty_options.head())  # Display the first few rows of the data
 
         if not nifty_options.empty:
-            # Option chain analysis (you can add your logic here to calculate the stats)
-            st.write(f"Option Chain for Nifty on {selected_date} at {time_dropdown}:")
-            st.write(nifty_options.head())  # Modify this with your specific analysis
+            # Display option chain stats for Nifty
+            st.write(f"Option Chain for Nifty on {selected_date}:")
+            
+            # Option chain analysis (modify this with your specific analysis logic)
+            max_call_oi = nifty_options[nifty_options['OptionType'] == 'CE']['OpenInterest'].max()
+            max_put_oi = nifty_options[nifty_options['OptionType'] == 'PE']['OpenInterest'].max()
+
+            st.write(f"Max Call Open Interest (OI): {max_call_oi}")
+            st.write(f"Max Put Open Interest (OI): {max_put_oi}")
 
         else:
             st.write(f"No data available for {selected_date}.")
