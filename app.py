@@ -4,6 +4,7 @@ from nsepy import get_history
 from datetime import datetime, date
 import plotly.graph_objects as go  # For candlestick chart
 import time  # For auto-refresh logic
+import pandas as pd  # Ensure pandas is imported
 
 # Title of the app
 st.title('📈 Stock Price Tracker and Option Chain Stats')
