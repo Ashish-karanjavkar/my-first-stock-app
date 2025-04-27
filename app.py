@@ -37,4 +37,9 @@ if stock:
         st.markdown(f"**Price Change: +{change_percentage:.2f}%**", unsafe_allow_html=True)
         st.markdown('<span style="color:green;">(Profit)</span>', unsafe_allow_html=True)
     else:
-        st.markdown
+        st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
+        st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
+
+    # Plot the historical stock prices (close price)
+    st.subheader(f"Stock Price Chart for {stock}")
+    st.line_chart(stock_info['Close'])  # Line chart for closing prices over the last 7 days
