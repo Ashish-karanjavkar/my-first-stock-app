@@ -2,12 +2,13 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
+import time  # to implement the auto-refresh logic
 
 # Title of the app
 st.title('📈 Stock Price Tracker (India)')
 
 # Short description
-st.write('Welcome! Track latest live stock prices from NSE and BSE markets.')
+st.write('Welcome! Track live stock prices from NSE and BSE markets.')
 
 # Input box for user to type stock symbol
 stock = st.text_input('Enter Stock Symbol (Example: RELIANCE, TCS, INFY)')
@@ -22,13 +23,11 @@ time_period = st.selectbox(
     ["7d", "30d", "1mo", "3mo", "6mo", "1y", "5y"]
 )
 
-# Show the dates chosen by the user
-st.write(f"Selected Dates: {start_date} to {end_date}")
+# Refresh button
+refresh = st.button("Refresh Data")
 
-# Fetch stock data if the stock symbol is provided
-if stock:
-    st.write(f"You entered: {stock}")
-
+# Fetch stock data when the refresh button is clicked or when stock is entered
+if stock or refresh:
     # Automatically add .NS for NSE stocks if not an index (e.g., Nifty)
     if not stock.startswith('^'):
         stock = stock.upper() + ".NS"
@@ -72,3 +71,10 @@ if stock:
         # Plot the historical stock prices (close price) for the selected period
         st.subheader(f"Stock Price Chart for {stock} from {start_date_str} to {end_date_str}")
         st.line_chart(stock_info['Close'])  # Line chart for closing prices over the custom date range
+
+    # Option to automatically refresh every minute
+    if refresh:
+        time.sleep(60)  # Wait for 60 seconds before refreshing (you can adjust this time)
+
+    # If you want to rerun the app automatically after a certain interval:
+    # st.experimental_rerun()
