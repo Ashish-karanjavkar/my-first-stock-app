@@ -1,13 +1,16 @@
 import streamlit as st
 import yfinance as yf
-from datetime import datetime, timedelta
+from nsepy import get_history
 import pandas as pd
+from datetime import datetime, timedelta
+import plotly.graph_objects as go
+import time
 
 # Title of the app
 st.title('📈 Stock Price Tracker and Option Chain Stats')
 
 # Sidebar for page selection
-page = st.sidebar.radio("Select Page", ["Stock Tracker", "Option Chain Stats", "Past 10 Days Stock Data"])
+page = st.sidebar.radio("Select Page", ["Stock Tracker", "Option Chain Stats", "Past 10 Days Data"])
 
 # ====================
 # Stock Tracker Page
@@ -72,59 +75,80 @@ if page == "Stock Tracker":
                 st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
                 st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
 
+            # Plot the candlestick chart for the stock data
+            st.subheader(f"Candlestick Chart for {stock} from {start_date_str} to {end_date_str}")
+
+            # Prepare the data for the candlestick chart
+            fig = go.Figure(data=[go.Candlestick(
+                x=stock_info.index,
+                open=stock_info['Open'],
+                high=stock_info['High'],
+                low=stock_info['Low'],
+                close=stock_info['Close'],
+                name="Candlestick"
+            )])
+
+            # Update the layout of the chart for better visibility
+            fig.update_layout(
+                title=f"{stock} Candlestick Chart",
+                xaxis_title="Date",
+                yaxis_title="Price (₹)",
+                xaxis_rangeslider_visible=False
+            )
+            
+            # Show the candlestick chart in the Streamlit app
+            st.plotly_chart(fig)
+
+        # Option to automatically refresh every minute
+        if refresh:
+            time.sleep(60)  # Wait for 60 seconds before refreshing (you can adjust this time)
+
 # ====================
 # Option Chain Stats Page
 elif page == "Option Chain Stats":
     st.write("Fetching Option Chain Data...")
 
-    # Input box for symbol to fetch option chain data
-    symbol_input = st.text_input("Enter the Symbol (e.g., Nifty50, Nifty, etc.)", "NIFTY50")
-
-    # Date selection dropdown for the last 10 days
+    # Date Dropdown for past 10 days
     date_dropdown = st.selectbox("Select Date", pd.date_range(datetime.today() - pd.Timedelta(days=10), datetime.today()).strftime('%Y-%m-%d'))
     st.write(f"Selected Date: {date_dropdown}")
 
-    # Time selection dropdown
-    time_dropdown = st.selectbox("Select Time", pd.date_range(datetime.today(), datetime.today() + pd.Timedelta(hours=1), freq="15T").strftime('%H:%M'))
+    # Time Dropdown (set hours from 9 AM to 3:30 PM)
+    time_dropdown = st.selectbox("Select Time", ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30"])
     st.write(f"Selected Time: {time_dropdown}")
 
-    # Fetch the data when the user selects a symbol, date, and time
-    if symbol_input:
-        st.write(f"Fetching data for {symbol_input} on {date_dropdown} at {time_dropdown}...")
-        
-        # Fetch Option Chain Data for the selected symbol, date, and time
-        try:
-            option_data = get_history(symbol=symbol_input, index=True, start=datetime.strptime(date_dropdown, '%Y-%m-%d'), end=datetime.strptime(date_dropdown, '%Y-%m-%d'))
-            
-            if not option_data.empty:
-                # Display fetched data
-                st.write(option_data)
-            else:
-                st.write(f"No data available for {symbol_input} on {date_dropdown} at {time_dropdown}.")
-        except Exception as e:
-            st.write(f"Error fetching data: {e}")
-
-# ====================
-# Past 10 Days Stock Data Page
-elif page == "Past 10 Days Stock Data":
-    st.write("Fetching Past 10 Days Stock Data for Nifty50...")
-
-    # Get the past 10 days' data for Nifty50
-    symbol = "^NSEI"  # Use Nifty50 index symbol on Yahoo Finance
-    today = datetime.today()
-    start_date = today - timedelta(days=10)
+    # Fetching data for selected date and time
+    selected_datetime = f"{date_dropdown} {time_dropdown}"
+    st.write(f"Fetching data for {selected_datetime}...")
 
     try:
-        # Fetch stock data for the past 10 days
-        stock_data = yf.Ticker(symbol)
-        stock_info = stock_data.history(start=start_date.strftime('%Y-%m-%d'), end=today.strftime('%Y-%m-%d'))
+        # Fetch Option Chain data for Nifty50 (use ^NSEI for Nifty50)
+        symbol = "^NSEI"  # Nifty50 symbol
+        option_data = get_history(symbol=symbol, index=True, start=pd.to_datetime(date_dropdown), end=pd.to_datetime(date_dropdown))
 
-        if not stock_info.empty:
-            # Display open and close prices for each day
-            st.write(f"Stock Data for {symbol} (Past 10 Days):")
-            st.write(stock_info[['Open', 'Close']])
+        if not option_data.empty:
+            st.write("Option Chain Data:")
+            st.write(option_data)
+
+            # You can add further logic here to extract and show relevant statistics, like Max Call OI, Max Put OI, etc.
+        else:
+            st.write(f"No data available for {symbol} on {selected_datetime}.")
+    except Exception as e:
+        st.write(f"Error fetching data: {e}")
+
+# ====================
+# Past 10 Days Stock Data Page (for Nifty50)
+elif page == "Past 10 Days Data":
+    st.write("Fetching Past 10 Days Stock Data for Nifty50...")
+
+    # Fetch the past 10 days data for Nifty50
+    symbol = "^NSEI"  # Nifty50 symbol
+    try:
+        stock_data = yf.Ticker(symbol)
+        past_data = stock_data.history(period="10d")
+
+        if not past_data.empty:
+            st.write(past_data[['Open', 'Close']])
         else:
             st.write(f"No data available for {symbol} in the past 10 days.")
     except Exception as e:
         st.write(f"Error fetching data: {e}")
-
