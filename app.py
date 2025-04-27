@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
+import plotly.graph_objects as go  # Import Plotly for candlestick chart
 import time  # to implement the auto-refresh logic
 
 # Title of the app
@@ -68,9 +69,29 @@ if stock or refresh:
             st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
             st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
 
-        # Plot the historical stock prices (close price) for the selected period
-        st.subheader(f"Stock Price Chart for {stock} from {start_date_str} to {end_date_str}")
-        st.line_chart(stock_info['Close'])  # Line chart for closing prices over the custom date range
+        # Plot the candlestick chart for the stock data
+        st.subheader(f"Candlestick Chart for {stock} from {start_date_str} to {end_date_str}")
+
+        # Prepare the data for the candlestick chart
+        fig = go.Figure(data=[go.Candlestick(
+            x=stock_info.index,
+            open=stock_info['Open'],
+            high=stock_info['High'],
+            low=stock_info['Low'],
+            close=stock_info['Close'],
+            name="Candlestick"
+        )])
+
+        # Update the layout of the chart for better visibility
+        fig.update_layout(
+            title=f"{stock} Candlestick Chart",
+            xaxis_title="Date",
+            yaxis_title="Price (₹)",
+            xaxis_rangeslider_visible=False
+        )
+        
+        # Show the candlestick chart in the Streamlit app
+        st.plotly_chart(fig)
 
     # Option to automatically refresh every minute
     if refresh:
