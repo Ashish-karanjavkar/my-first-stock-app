@@ -110,7 +110,7 @@ elif page == "Past 10 Days Stock Data":
     st.write("Fetching Past 10 Days Stock Data for Nifty50...")
 
     # Get the past 10 days' data for Nifty50
-    symbol = "NIFTY50"
+    symbol = "^NSEI"  # Use Nifty50 index symbol on Yahoo Finance
     today = datetime.today()
     start_date = today - timedelta(days=10)
 
@@ -127,3 +127,4 @@ elif page == "Past 10 Days Stock Data":
             st.write(f"No data available for {symbol} in the past 10 days.")
     except Exception as e:
         st.write(f"Error fetching data: {e}")
+
