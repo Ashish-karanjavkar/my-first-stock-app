@@ -1,5 +1,6 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
 
 # Title of the app
 st.title('📈 Stock Price Tracker (India)')
@@ -19,7 +20,7 @@ if stock:
     
     # Fetch Stock Data from Yahoo Finance
     stock_data = yf.Ticker(stock)  # We use the modified stock symbol
-    stock_info = stock_data.history(period="2d")  # Fetch last 2 days data
+    stock_info = stock_data.history(period="7d")  # Fetch last 7 days data
 
     # Get the latest closing price and previous closing price
     latest_price = stock_info['Close'].iloc[-1]
@@ -36,5 +37,4 @@ if stock:
         st.markdown(f"**Price Change: +{change_percentage:.2f}%**", unsafe_allow_html=True)
         st.markdown('<span style="color:green;">(Profit)</span>', unsafe_allow_html=True)
     else:
-        st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
-        st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
+        st.markdown
