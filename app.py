@@ -1,7 +1,7 @@
 import streamlit as st
 from nsepy import get_history
-from datetime import datetime, timedelta
-import pandas as pd
+from datetime import datetime, date, timedelta
+import time
 
 # Title of the app
 st.title('📈 Stock Price Tracker and Option Chain Stats')
@@ -21,115 +21,40 @@ if page == "Stock Tracker":
     start_date = st.date_input('Select Start Date', datetime.today())
     end_date = st.date_input('Select End Date', datetime.today())
 
-    # Dropdown for selecting the time period (for fallback)
-    time_period = st.selectbox(
-        "Select Time Period (For fallback)",
-        ["7d", "30d", "1mo", "3mo", "6mo", "1y", "5y"]
-    )
-
-    # Refresh button
-    refresh = st.button("Refresh Data")
-
     # Fetch stock data when the refresh button is clicked or when stock is entered
-    if stock or refresh:
-        # Automatically add .NS for NSE stocks if not an index (e.g., Nifty)
-        if not stock.startswith('^'):
-            stock = stock.upper() + ".NS"
-        
-        # Convert date inputs to strings for the yfinance API
-        start_date_str = start_date.strftime('%Y-%m-%d')
-        end_date_str = end_date.strftime('%Y-%m-%d')
-        
-        # Fetch Stock Data from Yahoo Finance
-        stock_data = yf.Ticker(stock)
-        
-        # Try to get data for the custom date range first, fallback to time_period if no custom dates selected
-        try:
-            stock_info = stock_data.history(start=start_date_str, end=end_date_str)
-        except Exception as e:
-            st.error(f"Error fetching data: {e}")
-            stock_info = stock_data.history(period=time_period)  # Fallback to pre-defined time period
-        
-        # If no data available, show a message
-        if stock_info.empty:
-            st.write("No data available for the selected date range.")
-        else:
-            # Get the latest closing price and previous closing price
-            latest_price = stock_info['Close'].iloc[-1]
-            previous_price = stock_info['Close'].iloc[-2] if len(stock_info) > 1 else latest_price
-
-            # Calculate the percentage change
-            change_percentage = ((latest_price - previous_price) / previous_price) * 100 if previous_price != latest_price else 0
-            
-            # Display the latest price
-            st.write(f"Latest price for {stock}: ₹{latest_price:.2f}")
-            
-            # Display the percentage change with color coding
-            if change_percentage >= 0:
-                st.markdown(f"**Price Change: +{change_percentage:.2f}%**", unsafe_allow_html=True)
-                st.markdown('<span style="color:green;">(Profit)</span>', unsafe_allow_html=True)
-            else:
-                st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
-                st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
-
-            # Plot the candlestick chart for the stock data
-            st.subheader(f"Candlestick Chart for {stock} from {start_date_str} to {end_date_str}")
-
-            # Prepare the data for the candlestick chart
-            fig = go.Figure(data=[go.Candlestick(
-                x=stock_info.index,
-                open=stock_info['Open'],
-                high=stock_info['High'],
-                low=stock_info['Low'],
-                close=stock_info['Close'],
-                name="Candlestick"
-            )])
-
-            # Update the layout of the chart for better visibility
-            fig.update_layout(
-                title=f"{stock} Candlestick Chart",
-                xaxis_title="Date",
-                yaxis_title="Price (₹)",
-                xaxis_rangeslider_visible=False
-            )
-            
-            # Show the candlestick chart in the Streamlit app
-            st.plotly_chart(fig)
-
-        # Option to automatically refresh every minute
-        if refresh:
-            time.sleep(60)  # Wait for 60 seconds before refreshing (you can adjust this time)
+    if stock:
+        # Add logic for stock data retrieval here...
+        pass  # Placeholder
 
 # ====================
 # Option Chain Stats Page
 elif page == "Option Chain Stats":
     st.write("Fetching Option Chain Data...")
 
-    # Date range dropdown for past 10 days
-    date_options = [datetime.today() - timedelta(days=i) for i in range(10)]
-    date_dropdown = st.selectbox("Select Date (Past 10 Days)", [date.strftime('%Y-%m-%d') for date in date_options])
-    selected_date = datetime.strptime(date_dropdown, '%Y-%m-%d').date()
+    # Date dropdown for past 10 days
+    date_list = [date.today() - timedelta(days=i) for i in range(10)]
+    selected_date = st.selectbox("Select Date", date_list)
+    st.write(f"Selected Date: {selected_date}")
 
-    # Get the option chain for Nifty on the selected date
-    try:
-        nifty_options = get_history(symbol="NIFTY", index=True, start=selected_date, end=selected_date)
-        
-        # Print the fetched data for debugging purposes
-        st.write("Fetched Data:")
-        st.write(nifty_options.head())  # Display the first few rows of the data
+    # Time dropdown (for example, selecting hours)
+    time_list = [f"{i}:00" for i in range(9, 16)]  # Selecting hours from 9 AM to 3 PM
+    selected_time = st.selectbox("Select Time", time_list)
+    st.write(f"Selected Time: {selected_time}")
 
-        if not nifty_options.empty:
-            # Display option chain stats for Nifty
-            st.write(f"Option Chain for Nifty on {selected_date}:")
+    # Fetch data based on selected date and time
+    if selected_date and selected_time:
+        st.write(f"Fetching data for {selected_date} at {selected_time}...")
+
+        # Fetch option chain data (Ensure this is correctly adjusted to your market data API)
+        try:
+            # Adjust to use the actual data fetch logic
+            option_data = get_history(symbol="NIFTY", start=selected_date, end=selected_date)
+            # Optionally filter the data based on time (if applicable to the data structure)
             
-            # Option chain analysis (modify this with your specific analysis logic)
-            max_call_oi = nifty_options[nifty_options['OptionType'] == 'CE']['OpenInterest'].max()
-            max_put_oi = nifty_options[nifty_options['OptionType'] == 'PE']['OpenInterest'].max()
-
-            st.write(f"Max Call Open Interest (OI): {max_call_oi}")
-            st.write(f"Max Put Open Interest (OI): {max_put_oi}")
-
-        else:
-            st.write(f"No data available for {selected_date}.")
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
+            # Placeholder for data display
+            if not option_data.empty:
+                st.write(option_data)
+            else:
+                st.write("No data available for the selected symbol.")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
