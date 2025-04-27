@@ -11,6 +11,12 @@ st.write('Welcome! Track latest live stock prices from NSE and BSE markets.')
 # Input box for user to type stock symbol
 stock = st.text_input('Enter Stock Symbol (Example: RELIANCE, TCS, INFY)')
 
+# Dropdown for selecting the time period
+time_period = st.selectbox(
+    "Select Time Period",
+    ["7d", "30d", "1mo", "3mo", "6mo", "1y", "5y"]
+)
+
 if stock:
     st.write(f"You entered: {stock}")
 
@@ -18,16 +24,16 @@ if stock:
     if not stock.startswith('^'):
         stock = stock.upper() + ".NS"
     
-    # Fetch Stock Data from Yahoo Finance
+    # Fetch Stock Data from Yahoo Finance based on the selected time period
     stock_data = yf.Ticker(stock)  # We use the modified stock symbol
-    stock_info = stock_data.history(period="7d")  # Fetch last 7 days data
+    stock_info = stock_data.history(period=time_period)  # Fetch data for selected time period
 
     # Get the latest closing price and previous closing price
     latest_price = stock_info['Close'].iloc[-1]
-    previous_price = stock_info['Close'].iloc[-2]
+    previous_price = stock_info['Close'].iloc[-2] if len(stock_info) > 1 else latest_price
 
     # Calculate the percentage change
-    change_percentage = ((latest_price - previous_price) / previous_price) * 100
+    change_percentage = ((latest_price - previous_price) / previous_price) * 100 if previous_price != latest_price else 0
     
     # Display the latest price
     st.write(f"Latest price for {stock}: ₹{latest_price:.2f}")
@@ -40,6 +46,6 @@ if stock:
         st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
         st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
 
-    # Plot the historical stock prices (close price)
-    st.subheader(f"Stock Price Chart for {stock}")
-    st.line_chart(stock_info['Close'])  # Line chart for closing prices over the last 7 days
+    # Plot the historical stock prices (close price) for the selected period
+    st.subheader(f"Stock Price Chart for {stock} over the last {time_period}")
+    st.line_chart(stock_info['Close'])  # Line chart for closing prices over the selected period
