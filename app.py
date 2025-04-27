@@ -1,16 +1,13 @@
 import streamlit as st
 import yfinance as yf
-from nsepy import get_history
-from datetime import datetime, date
-import plotly.graph_objects as go  # For candlestick chart
-import time  # For auto-refresh logic
+from datetime import datetime, timedelta
 import pandas as pd
 
 # Title of the app
 st.title('📈 Stock Price Tracker and Option Chain Stats')
 
 # Sidebar for page selection
-page = st.sidebar.radio("Select Page", ["Stock Tracker", "Option Chain Stats"])
+page = st.sidebar.radio("Select Page", ["Stock Tracker", "Option Chain Stats", "Past 10 Days Stock Data"])
 
 # ====================
 # Stock Tracker Page
@@ -75,34 +72,6 @@ if page == "Stock Tracker":
                 st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
                 st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
 
-            # Plot the candlestick chart for the stock data
-            st.subheader(f"Candlestick Chart for {stock} from {start_date_str} to {end_date_str}")
-
-            # Prepare the data for the candlestick chart
-            fig = go.Figure(data=[go.Candlestick(
-                x=stock_info.index,
-                open=stock_info['Open'],
-                high=stock_info['High'],
-                low=stock_info['Low'],
-                close=stock_info['Close'],
-                name="Candlestick"
-            )])
-
-            # Update the layout of the chart for better visibility
-            fig.update_layout(
-                title=f"{stock} Candlestick Chart",
-                xaxis_title="Date",
-                yaxis_title="Price (₹)",
-                xaxis_rangeslider_visible=False
-            )
-            
-            # Show the candlestick chart in the Streamlit app
-            st.plotly_chart(fig)
-
-        # Option to automatically refresh every minute
-        if refresh:
-            time.sleep(60)  # Wait for 60 seconds before refreshing (you can adjust this time)
-
 # ====================
 # Option Chain Stats Page
 elif page == "Option Chain Stats":
@@ -134,3 +103,27 @@ elif page == "Option Chain Stats":
                 st.write(f"No data available for {symbol_input} on {date_dropdown} at {time_dropdown}.")
         except Exception as e:
             st.write(f"Error fetching data: {e}")
+
+# ====================
+# Past 10 Days Stock Data Page
+elif page == "Past 10 Days Stock Data":
+    st.write("Fetching Past 10 Days Stock Data for Nifty50...")
+
+    # Get the past 10 days' data for Nifty50
+    symbol = "NIFTY50"
+    today = datetime.today()
+    start_date = today - timedelta(days=10)
+
+    try:
+        # Fetch stock data for the past 10 days
+        stock_data = yf.Ticker(symbol)
+        stock_info = stock_data.history(start=start_date.strftime('%Y-%m-%d'), end=today.strftime('%Y-%m-%d'))
+
+        if not stock_info.empty:
+            # Display open and close prices for each day
+            st.write(f"Stock Data for {symbol} (Past 10 Days):")
+            st.write(stock_info[['Open', 'Close']])
+        else:
+            st.write(f"No data available for {symbol} in the past 10 days.")
+    except Exception as e:
+        st.write(f"Error fetching data: {e}")
