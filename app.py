@@ -1,154 +1,135 @@
 import streamlit as st
-import yfinance as yf
-from nsepy import get_history
 import pandas as pd
-from datetime import datetime, timedelta
-import plotly.graph_objects as go
-import time
+import requests
+from datetime import datetime
 
-# Title of the app
-st.title('📈 Stock Price Tracker and Option Chain Stats')
+st.set_page_config(page_title="📈 Option Chain Stats", layout="wide")
 
-# Sidebar for page selection
-page = st.sidebar.radio("Select Page", ["Stock Tracker", "Option Chain Stats", "Past 10 Days Data"])
-
-# ====================
-# Stock Tracker Page
-if page == "Stock Tracker":
-    st.write('Welcome! Track live stock prices from NSE and BSE markets.')
-
-    # Input box for user to type stock symbol
-    stock = st.text_input('Enter Stock Symbol (Example: RELIANCE, TCS, INFY)')
-
-    # Date picker for start and end date
-    start_date = st.date_input('Select Start Date', datetime.today())
-    end_date = st.date_input('Select End Date', datetime.today())
-
-    # Dropdown for selecting the time period (for fallback)
-    time_period = st.selectbox(
-        "Select Time Period (For fallback)",
-        ["7d", "30d", "1mo", "3mo", "6mo", "1y", "5y"]
-    )
-
-    # Refresh button
-    refresh = st.button("Refresh Data")
-
-    # Fetch stock data when the refresh button is clicked or when stock is entered
-    if stock or refresh:
-        # Automatically add .NS for NSE stocks if not an index (e.g., Nifty)
-        if not stock.startswith('^'):
-            stock = stock.upper() + ".NS"
-        
-        # Convert date inputs to strings for the yfinance API
-        start_date_str = start_date.strftime('%Y-%m-%d')
-        end_date_str = end_date.strftime('%Y-%m-%d')
-        
-        # Fetch Stock Data from Yahoo Finance
-        stock_data = yf.Ticker(stock)
-        
-        # Try to get data for the custom date range first, fallback to time_period if no custom dates selected
-        try:
-            stock_info = stock_data.history(start=start_date_str, end=end_date_str)
-        except Exception as e:
-            st.error(f"Error fetching data: {e}")
-            stock_info = stock_data.history(period=time_period)  # Fallback to pre-defined time period
-        
-        # If no data available, show a message
-        if stock_info.empty:
-            st.write("No data available for the selected date range.")
-        else:
-            # Get the latest closing price and previous closing price
-            latest_price = stock_info['Close'].iloc[-1]
-            previous_price = stock_info['Close'].iloc[-2] if len(stock_info) > 1 else latest_price
-
-            # Calculate the percentage change
-            change_percentage = ((latest_price - previous_price) / previous_price) * 100 if previous_price != latest_price else 0
-            
-            # Display the latest price
-            st.write(f"Latest price for {stock}: ₹{latest_price:.2f}")
-            
-            # Display the percentage change with color coding
-            if change_percentage >= 0:
-                st.markdown(f"**Price Change: +{change_percentage:.2f}%**", unsafe_allow_html=True)
-                st.markdown('<span style="color:green;">(Profit)</span>', unsafe_allow_html=True)
-            else:
-                st.markdown(f"**Price Change: {change_percentage:.2f}%**", unsafe_allow_html=True)
-                st.markdown('<span style="color:red;">(Loss)</span>', unsafe_allow_html=True)
-
-            # Plot the candlestick chart for the stock data
-            st.subheader(f"Candlestick Chart for {stock} from {start_date_str} to {end_date_str}")
-
-            # Prepare the data for the candlestick chart
-            fig = go.Figure(data=[go.Candlestick(
-                x=stock_info.index,
-                open=stock_info['Open'],
-                high=stock_info['High'],
-                low=stock_info['Low'],
-                close=stock_info['Close'],
-                name="Candlestick"
-            )])
-
-            # Update the layout of the chart for better visibility
-            fig.update_layout(
-                title=f"{stock} Candlestick Chart",
-                xaxis_title="Date",
-                yaxis_title="Price (₹)",
-                xaxis_rangeslider_visible=False
-            )
-            
-            # Show the candlestick chart in the Streamlit app
-            st.plotly_chart(fig)
-
-        # Option to automatically refresh every minute
-        if refresh:
-            time.sleep(60)  # Wait for 60 seconds before refreshing (you can adjust this time)
-
-# ====================
-# Option Chain Stats Page
-elif page == "Option Chain Stats":
-    st.write("Fetching Option Chain Data...")
-
-    # Date Dropdown for past 10 days
-    date_dropdown = st.selectbox("Select Date", pd.date_range(datetime.today() - pd.Timedelta(days=10), datetime.today()).strftime('%Y-%m-%d'))
-    st.write(f"Selected Date: {date_dropdown}")
-
-    # Time Dropdown (set hours from 9 AM to 3:30 PM)
-    time_dropdown = st.selectbox("Select Time", ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30"])
-    st.write(f"Selected Time: {time_dropdown}")
-
-    # Fetching data for selected date and time
-    selected_datetime = f"{date_dropdown} {time_dropdown}"
-    st.write(f"Fetching data for {selected_datetime}...")
-
+def fetch_option_chain(symbol="NIFTY"):
     try:
-        # Fetch Option Chain data for Nifty50 (use ^NSEI for Nifty50)
-        symbol = "^NSEI"  # Nifty50 symbol
-        option_data = get_history(symbol=symbol, index=True, start=pd.to_datetime(date_dropdown), end=pd.to_datetime(date_dropdown))
-
-        if not option_data.empty:
-            st.write("Option Chain Data:")
-            st.write(option_data)
-
-            # You can add further logic here to extract and show relevant statistics, like Max Call OI, Max Put OI, etc.
-        else:
-            st.write(f"No data available for {symbol} on {selected_datetime}.")
+        url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+        }
+        session = requests.Session()
+        session.get("https://www.nseindia.com", headers=headers)
+        response = session.get(url, headers=headers)
+        data = response.json()
+        return data
     except Exception as e:
-        st.write(f"Error fetching data: {e}")
+        st.error(f"Error fetching data: {e}")
+        return None
 
-# ====================
-# Past 10 Days Stock Data Page (for Nifty50)
-elif page == "Past 10 Days Data":
-    st.write("Fetching Past 10 Days Stock Data for Nifty50...")
+def calculate_stats(data):
+    records = data['records']['data']
+    underlying_value = data['records']['underlyingValue']
 
-    # Fetch the past 10 days data for Nifty50
-    symbol = "^NSEI"  # Nifty50 symbol
-    try:
-        stock_data = yf.Ticker(symbol)
-        past_data = stock_data.history(period="10d")
+    df = pd.json_normalize(records)
 
-        if not past_data.empty:
-            st.write(past_data[['Open', 'Close']])
+    call_oi = []
+    put_oi = []
+    strike_prices = []
+
+    call_ltp = []
+    put_ltp = []
+
+    for record in records:
+        if 'CE' in record and 'PE' in record:
+            strike_prices.append(record['strikePrice'])
+            call_oi.append(record['CE']['openInterest'])
+            put_oi.append(record['PE']['openInterest'])
+            call_ltp.append(record['CE']['lastPrice'])
+            put_ltp.append(record['PE']['lastPrice'])
+
+    call_oi = pd.Series(call_oi, index=strike_prices)
+    put_oi = pd.Series(put_oi, index=strike_prices)
+
+    pcr = round(put_oi.sum() / call_oi.sum(), 2)
+
+    max_call_strike = call_oi.idxmax()
+    second_max_call_strike = call_oi.drop(max_call_strike).idxmax()
+
+    max_put_strike = put_oi.idxmax()
+    second_max_put_strike = put_oi.drop(max_put_strike).idxmax()
+
+    # Max Pain Calculation
+    strikes = list(call_oi.index)
+    pain = {}
+    for strike in strikes:
+        total = 0
+        for k in strikes:
+            call_loss = max(k - strike, 0) * call_oi.get(k, 0)
+            put_loss = max(strike - k, 0) * put_oi.get(k, 0)
+            total += call_loss + put_loss
+        pain[strike] = total
+    max_pain_strike = min(pain, key=pain.get)
+
+    # Least Decay
+    decay_df = pd.DataFrame({
+        'strike': strike_prices,
+        'call_ltp': call_ltp,
+        'put_ltp': put_ltp
+    })
+    decay_df['total_ltp'] = decay_df['call_ltp'] + decay_df['put_ltp']
+    least_decay_strike = decay_df.loc[decay_df['total_ltp'].idxmin()]['strike']
+
+    stats = {
+        "Spot": underlying_value,
+        "Close": underlying_value,  # Close is not separately available; using Spot
+        "PCR": pcr,
+        "Max Call OI": max_call_strike,
+        "2nd Max Call OI": second_max_call_strike,
+        "Max Put OI": max_put_strike,
+        "2nd Max Put OI": second_max_put_strike,
+        "Max Pain": max_pain_strike,
+        "KPP Max Pain": max_pain_strike,  # For now same as Max Pain
+        "Expiry Close": max_pain_strike,  # Approx ATM/Max Pain
+        "Least Decay": least_decay_strike,
+        "Max Sale": max_call_strike,
+        "Resistance": max_call_strike,
+        "Overall Support": max_put_strike,
+    }
+
+    return stats
+
+# Streamlit App
+st.title("📈 Option Chain Statistics")
+
+symbol = st.text_input("Enter Symbol (Default: NIFTY)", value="NIFTY")
+btn = st.button("Fetch Option Chain Stats")
+
+if btn:
+    with st.spinner(f"Fetching data for {symbol}..."):
+        data = fetch_option_chain(symbol)
+        if data:
+            stats = calculate_stats(data)
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("Spot", stats["Spot"])
+                st.metric("Max Sale", stats["Max Sale"])
+                st.metric("Overall Support", stats["Overall Support"])
+                st.metric("Max Pain", stats["Max Pain"])
+
+            with col2:
+                st.metric("Close", stats["Close"])
+                st.metric("Resistance", stats["Resistance"])
+                st.metric("Max Put OI", stats["Max Put OI"])
+                st.metric("KPP Max Pain", stats["KPP Max Pain"])
+
+            with col3:
+                st.metric("PCR", stats["PCR"])
+                st.metric("Max Call OI", stats["Max Call OI"])
+                st.metric("2nd Max Put OI", stats["2nd Max Put OI"])
+                st.metric("Expiry Close", stats["Expiry Close"])
+
+            with col4:
+                st.metric("Least Decay", stats["Least Decay"])
+                st.metric("2nd Max Call OI", stats["2nd Max Call OI"])
+
         else:
-            st.write(f"No data available for {symbol} in the past 10 days.")
-    except Exception as e:
-        st.write(f"Error fetching data: {e}")
+            st.error("Failed to fetch data.")
