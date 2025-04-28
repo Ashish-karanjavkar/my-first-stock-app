@@ -1,21 +1,29 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
 import requests
-from datetime import datetime
+import datetime
 
-st.set_page_config(page_title="📈 Option Chain Stats", layout="wide")
+# --- FUNCTIONS ---
 
-def fetch_option_chain(symbol="NIFTY"):
+@st.cache_data
+def fetch_stock_data(symbol="^NSEI"):
+    today = datetime.date.today()
+    ten_days_ago = today - datetime.timedelta(days=10)
+    df = yf.download(symbol, start=ten_days_ago, end=today)
+    return df
+
+@st.cache_data
+def fetch_option_chain(symbol="NIFTY", expiry_date=None):
     try:
         url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
         }
         session = requests.Session()
-        session.get("https://www.nseindia.com", headers=headers)
         response = session.get(url, headers=headers)
         data = response.json()
         return data
@@ -23,113 +31,106 @@ def fetch_option_chain(symbol="NIFTY"):
         st.error(f"Error fetching data: {e}")
         return None
 
-def calculate_stats(data):
-    records = data['records']['data']
-    underlying_value = data['records']['underlyingValue']
+# --- SIDEBAR ---
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Stock Tracker", "Option Chain Stats", "Past 10 Days Data"])
 
-    df = pd.json_normalize(records)
+# --- PAGE 1: Stock Tracker ---
+if page == "Stock Tracker":
+    st.title("📈 Stock Price Tracker")
 
-    call_oi = []
-    put_oi = []
-    strike_prices = []
+    symbol = st.text_input("Enter Symbol (e.g., ^NSEI for Nifty50)", "^NSEI")
 
-    call_ltp = []
-    put_ltp = []
+    data = fetch_stock_data(symbol)
 
-    for record in records:
-        if 'CE' in record and 'PE' in record:
-            strike_prices.append(record['strikePrice'])
-            call_oi.append(record['CE']['openInterest'])
-            put_oi.append(record['PE']['openInterest'])
-            call_ltp.append(record['CE']['lastPrice'])
-            put_ltp.append(record['PE']['lastPrice'])
+    if not data.empty:
+        st.subheader(f"Stock Data for {symbol}")
+        st.line_chart(data['Close'])
+    else:
+        st.warning("No data available.")
 
-    call_oi = pd.Series(call_oi, index=strike_prices)
-    put_oi = pd.Series(put_oi, index=strike_prices)
+# --- PAGE 2: Option Chain Stats ---
+elif page == "Option Chain Stats":
+    st.title("📊 Option Chain Stats")
 
-    pcr = round(put_oi.sum() / call_oi.sum(), 2)
+    st.subheader("Select Parameters")
+    symbol = st.text_input("Enter Index Symbol", "NIFTY")
+    
+    # Date selection (not actually used to pull different data — NSE API is live only)
+    date_dropdown = st.selectbox("Select Date", pd.date_range(datetime.date.today() - pd.Timedelta(days=10), datetime.date.today()).strftime('%Y-%m-%d'))
+    selected_time = st.selectbox(
+        "Select Time",
+        [f"{hour:02d}:{minute:02d}" for hour in range(9, 16) for minute in (0, 15, 30, 45)]
+    )
 
-    max_call_strike = call_oi.idxmax()
-    second_max_call_strike = call_oi.drop(max_call_strike).idxmax()
+    st.write(f"Fetching data for {symbol} on {date_dropdown} at {selected_time}...")
 
-    max_put_strike = put_oi.idxmax()
-    second_max_put_strike = put_oi.drop(max_put_strike).idxmax()
+    option_data = fetch_option_chain(symbol)
 
-    # Max Pain Calculation
-    strikes = list(call_oi.index)
-    pain = {}
-    for strike in strikes:
-        total = 0
-        for k in strikes:
-            call_loss = max(k - strike, 0) * call_oi.get(k, 0)
-            put_loss = max(strike - k, 0) * put_oi.get(k, 0)
-            total += call_loss + put_loss
-        pain[strike] = total
-    max_pain_strike = min(pain, key=pain.get)
+    if option_data:
+        st.success("Data fetched successfully!")
+        
+        spot_price = option_data['records']['underlyingValue']
+        st.metric("Spot Price", f"{spot_price:.2f}")
 
-    # Least Decay
-    decay_df = pd.DataFrame({
-        'strike': strike_prices,
-        'call_ltp': call_ltp,
-        'put_ltp': put_ltp
-    })
-    decay_df['total_ltp'] = decay_df['call_ltp'] + decay_df['put_ltp']
-    least_decay_strike = decay_df.loc[decay_df['total_ltp'].idxmin()]['strike']
+        # --- Calculate basic stats ---
+        calls = []
+        puts = []
 
-    stats = {
-        "Spot": underlying_value,
-        "Close": underlying_value,  # Close is not separately available; using Spot
-        "PCR": pcr,
-        "Max Call OI": max_call_strike,
-        "2nd Max Call OI": second_max_call_strike,
-        "Max Put OI": max_put_strike,
-        "2nd Max Put OI": second_max_put_strike,
-        "Max Pain": max_pain_strike,
-        "KPP Max Pain": max_pain_strike,  # For now same as Max Pain
-        "Expiry Close": max_pain_strike,  # Approx ATM/Max Pain
-        "Least Decay": least_decay_strike,
-        "Max Sale": max_call_strike,
-        "Resistance": max_call_strike,
-        "Overall Support": max_put_strike,
-    }
+        for item in option_data['records']['data']:
+            if 'CE' in item:
+                calls.append(item['CE'])
+            if 'PE' in item:
+                puts.append(item['PE'])
 
-    return stats
+        call_df = pd.DataFrame(calls)
+        put_df = pd.DataFrame(puts)
 
-# Streamlit App
-st.title("📈 Option Chain Statistics")
+        max_call_oi = call_df.loc[call_df['openInterest'].idxmax()]
+        max_put_oi = put_df.loc[put_df['openInterest'].idxmax()]
+        second_max_call_oi = call_df.nlargest(2, 'openInterest').iloc[-1]
+        second_max_put_oi = put_df.nlargest(2, 'openInterest').iloc[-1]
 
-symbol = st.text_input("Enter Symbol (Default: NIFTY)", value="NIFTY")
-btn = st.button("Fetch Option Chain Stats")
+        pcr = put_df['openInterest'].sum() / call_df['openInterest'].sum()
 
-if btn:
-    with st.spinner(f"Fetching data for {symbol}..."):
-        data = fetch_option_chain(symbol)
-        if data:
-            stats = calculate_stats(data)
+        # --- Display 4 Columns ---
+        col1, col2, col3, col4 = st.columns(4)
 
-            col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Spot", f"{spot_price:.2f}")
+            st.metric("Close", f"{spot_price:.2f}")  # You can update this separately if you want
+            st.metric("PCR", f"{pcr:.2f}")
 
-            with col1:
-                st.metric("Spot", stats["Spot"])
-                st.metric("Max Sale", stats["Max Sale"])
-                st.metric("Overall Support", stats["Overall Support"])
-                st.metric("Max Pain", stats["Max Pain"])
+        with col2:
+            st.metric("Resistance", f"{max_call_oi['strikePrice']} (Max Call OI)")
+            st.metric("2nd Resistance", f"{second_max_call_oi['strikePrice']} (2nd Max Call OI)")
 
-            with col2:
-                st.metric("Close", stats["Close"])
-                st.metric("Resistance", stats["Resistance"])
-                st.metric("Max Put OI", stats["Max Put OI"])
-                st.metric("KPP Max Pain", stats["KPP Max Pain"])
+        with col3:
+            st.metric("Support", f"{max_put_oi['strikePrice']} (Max Put OI)")
+            st.metric("2nd Support", f"{second_max_put_oi['strikePrice']} (2nd Max Put OI)")
 
-            with col3:
-                st.metric("PCR", stats["PCR"])
-                st.metric("Max Call OI", stats["Max Call OI"])
-                st.metric("2nd Max Put OI", stats["2nd Max Put OI"])
-                st.metric("Expiry Close", stats["Expiry Close"])
+        with col4:
+            st.metric("Max Pain", "N/A (advanced calc)")
+            st.metric("KPP Max Pain", "N/A")
+            st.metric("Expiry Close", "N/A")
+            st.metric("Least Decay", "N/A")
+        
+        st.info("Note: Max Pain, KPP Max Pain, Expiry Close, Least Decay need more advanced calculations if you want real values.")
 
-            with col4:
-                st.metric("Least Decay", stats["Least Decay"])
-                st.metric("2nd Max Call OI", stats["2nd Max Call OI"])
+    else:
+        st.warning(f"No data available for {symbol} on {date_dropdown} at {selected_time}.")
 
-        else:
-            st.error("Failed to fetch data.")
+# --- PAGE 3: Past 10 Days Data ---
+elif page == "Past 10 Days Data":
+    st.title("📜 Past 10 Days NIFTY Open/Close")
+
+    symbol = "^NSEI"
+
+    data = fetch_stock_data(symbol)
+
+    if not data.empty:
+        past_data = data[['Open', 'Close']].copy()
+        past_data.index = past_data.index.strftime('%Y-%m-%d')
+        st.table(past_data)
+    else:
+        st.warning(f"No data available for {symbol} in the past 10 days.")
