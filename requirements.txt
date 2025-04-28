@@ -1,5 +1,8 @@
 yfinance
 streamlit
+pandas
+requests
 plotly
 nsetools
 nsepy
+
